@@ -41,10 +41,10 @@ int main(void)
     while (1) 
     {
 	
-		if(command_index == 1){
+		if(command_index == 0){
 			
 			lcd_clrscr();
-			ultoa((Command & (uint32_t)0x1FE),buffer,16);
+			ultoa((Command & (uint32_t)0x1FF),buffer,16);
 			lcd_puts(buffer);
 			Command = 0;
 			command_index = 32;	
