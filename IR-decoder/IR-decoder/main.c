@@ -5,27 +5,27 @@
  * Author : arthu
  */ 
  #define F_CPU 3686400L
- #define T_CPUCYCLE (1.0 / F_CPU)
 
-#include "lcd.h"
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <stdio.h>
+#include <stdlib.h>
+#include "lcd.h"
 
-uint16_t T_command[32];
+uint32_t Command;
 unsigned char is_locked = 0;
-unsigned char index = 0;
+unsigned char command_index = 32;
 
 
 
 int main(void)
 {
-	DDRC = 0xFF;	//	PORTC all outputs
+	
     // lcd setup
 	lcd_init(LCD_DISP_ON);
 
 	//	timer1 mode 0, no prescaler, no interrupts
-	TCCR1B &= ~((1 <<WGM13) | (1 << WGM12) | (1 << CS11) | (1 << CS12));
+	TCCR1B &= ~((1 << WGM13) | (1 << WGM12) | (1 << CS11) | (1 << CS12));
 	TCCR1A &= ~((1 << WGM11) | (1 << WGM10));
 	TCCR1B |= (1 << CS10);
 
@@ -34,27 +34,44 @@ int main(void)
 	EICRA &= ~(1 << ISC01);
 	EIMSK |= (1 << INT0);
 
+	sei();
 	//	buffer for string functions
-	unsigned char buffer[16];
+	 char buffer[32];
 
     while (1) 
     {
-		if(index == 32){
-			PORTC = 	
+	
+		if(command_index == 1){
+			
+			lcd_clrscr();
+			ultoa((Command & (uint32_t)0x1FE),buffer,16);
+			lcd_puts(buffer);
+			Command = 0;
+			command_index = 32;	
+			
 		}
     }
 }
 
 ISR(INT0_vect){
 	//	rising flank
-	if(PIND & (1 << PIND2)){
+	
+	if((PIND & (1 << PIND2))){
 		TCNT1 = 0;
 	} else {
-		static uint16_t value = TCNT1;
-		if(value > 16600){return;}	//	4.5ms / (1/3686400) = 16588.5 => 16600 ticks
+		
+		uint16_t value = TCNT1;
+		
+		if(value > 2027 && value < 2183){	//	550 µs / (1/3686400) = 2027.52 => 2027 ticks ¤¤¤ 580 µs / (1/3686400) = 2101.248 => 2183 ticks
+			Command &= ~(1 << (--command_index));
 			
-		T_command[index] = TCNT1;	//	store timing in array
-		index++;
+		} else if(value < 6257 && value > 6082) {	//	1.6975 ms / (1/3686400) = 6257.644 => 6257 ¤¤¤ 1.6500 ms / (1/3686400) = 6082.56 => 6082
+			Command |= (1 << (--command_index));
+			//PORTC ^= (1 << PORTC7);
+		} else if((value > 8110 && value < 8478) || value > 7000){
+			Command = 0;
+			command_index = 32;
+		}
 	}
 }
 
